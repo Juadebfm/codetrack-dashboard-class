@@ -22,3 +22,18 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Local AI-agent tooling, generated metadata, and agent instructions
+.agent/
+.agents/
+.claude/
+.codex/
+.cursor/
+.github/agents/
+skills-lock.json
+**/AGENTS.md
+**/CLAUDE.md
+**/RULE.md
+**/SKILL.md
+**/*.agent.md
+**/*.agents.md
