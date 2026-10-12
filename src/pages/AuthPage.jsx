@@ -17,6 +17,8 @@ function AuthPage({ mode }) {
   const [form, setForm] = useState(isSignUp ? emptySignUpForm : emptySignInForm);
   const [errors, setErrors] = useState({});
   const [formError, setFormError] = useState("");
+  const [formMessage, setFormMessage] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
 
   const updateField = (event) => {
@@ -25,6 +27,7 @@ function AuthPage({ mode }) {
     setForm((currentForm) => ({ ...currentForm, [name]: value }));
     setErrors((currentErrors) => ({ ...currentErrors, [name]: false }));
     setFormError("");
+    setFormMessage("");
   };
 
   const validate = () => {
@@ -45,7 +48,7 @@ function AuthPage({ mode }) {
     return nextErrors;
   };
 
-  const submitForm = (event) => {
+  const submitForm = async (event) => {
     event.preventDefault();
     const nextErrors = validate();
 
@@ -54,15 +57,24 @@ function AuthPage({ mode }) {
       return;
     }
 
-    const result = isSignUp ? signUp(form) : signIn(form.email, form.password);
+    setIsSubmitting(true);
+    setFormError("");
+    setFormMessage("");
+    try {
+      const result = isSignUp ? await signUp(form) : await signIn(form.email, form.password);
 
-    if (!result.success) {
-      setFormError(result.message);
-      setErrors({ email: true, password: true });
-      return;
+      if (isSignUp) {
+        setFormMessage(result.message || "Account created. Check your email to verify it.");
+        return;
+      }
+
+      navigate("/dashboard");
+    } catch (error) {
+      setFormError(error.message);
+      if (!isSignUp) setErrors({ email: true, password: true });
+    } finally {
+      setIsSubmitting(false);
     }
-
-    navigate("/dashboard");
   };
 
   const title = isSignUp ? "Create your account" : "Welcome back";
@@ -87,6 +99,7 @@ function AuthPage({ mode }) {
 
         <div className="auth-divider"><span>or</span></div>
         {formError && <p className="auth-alert" role="alert">! &nbsp;{formError}</p>}
+        {formMessage && <p className="auth-success" role="status">{formMessage}</p>}
 
         <form noValidate onSubmit={submitForm}>
           {isSignUp && (
@@ -131,8 +144,8 @@ function AuthPage({ mode }) {
             </div>
           )}
 
-          <button className="auth-submit" type="submit">
-            {isSignUp ? "Create account" : "Log in"}
+          <button className="auth-submit" disabled={isSubmitting} type="submit">
+            {isSubmitting ? "Please wait..." : isSignUp ? "Create account" : "Log in"}
           </button>
         </form>
 

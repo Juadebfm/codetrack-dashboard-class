@@ -1,66 +1,107 @@
-import { createContext, useMemo, useState } from "react";
+import { createContext, useCallback, useEffect, useMemo, useState } from "react";
 import PropTypes from "prop-types";
-import { getMockData } from "../services/mockDataService";
 
 const AuthContext = createContext(null);
+const API_BASE_URL = (import.meta.env.VITE_API_URL || "http://localhost:4000/api/v1").replace(/\/$/, "");
+
+async function apiRequest(path, options = {}) {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    ...options,
+    credentials: "include",
+    headers: {
+      ...(options.body ? { "Content-Type": "application/json" } : {}),
+      ...options.headers,
+    },
+  });
+
+  let payload = {};
+  try {
+    payload = await response.json();
+  } catch {
+    // Keep a useful fallback if the server responds without JSON.
+  }
+
+  if (!response.ok) {
+    const error = new Error(payload.error?.message || "Something went wrong. Please try again.");
+    error.status = response.status;
+    throw error;
+  }
+
+  return payload;
+}
 
 export function AuthProvider({ children }) {
-  const [mockUsers, setMockUsers] = useState(() => getMockData().mock_auth_users);
   const [currentUser, setCurrentUser] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    let isActive = true;
+
+    async function loadSession() {
+      try {
+        let response;
+        try {
+          response = await apiRequest("/auth/me");
+        } catch (error) {
+          if (error.status !== 401) throw error;
+          await apiRequest("/auth/refresh", { method: "POST" });
+          response = await apiRequest("/auth/me");
+        }
+
+        if (isActive) setCurrentUser(response.user);
+      } catch {
+        if (isActive) setCurrentUser(null);
+      } finally {
+        if (isActive) setIsLoading(false);
+      }
+    }
+
+    loadSession();
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  const signIn = useCallback(async (email, password) => {
+    const response = await apiRequest("/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ email, password }),
+    });
+    setCurrentUser(response.user);
+    return response;
+  }, []);
+
+  const signUp = useCallback(async ({ displayName, email, password }) => {
+    return apiRequest("/auth/register", {
+      method: "POST",
+      body: JSON.stringify({ displayName, email, password }),
+    });
+  }, []);
+
+  const verifyEmail = useCallback(async (token) => {
+    const query = new URLSearchParams({ token });
+    return apiRequest(`/auth/verify-email?${query.toString()}`);
+  }, []);
+
+  const signOut = useCallback(async () => {
+    try {
+      await apiRequest("/auth/logout", { method: "POST" });
+    } finally {
+      setCurrentUser(null);
+    }
+  }, []);
 
   const value = useMemo(
     () => ({
       currentUser,
       isAuthenticated: Boolean(currentUser),
-      signIn(email, password) {
-        const matchingUser = mockUsers.find(
-          (user) =>
-            user.email.toLowerCase() === email.trim().toLowerCase() &&
-            user.password === password,
-        );
-
-        if (!matchingUser) {
-          return {
-            success: false,
-            message: "That email or password doesn't look right.",
-          };
-        }
-
-        setCurrentUser(matchingUser);
-
-        return { success: true, user: matchingUser };
-      },
-      signUp({ displayName, email, password }) {
-        const emailInUse = mockUsers.some(
-          (user) => user.email.toLowerCase() === email.trim().toLowerCase(),
-        );
-
-        if (emailInUse) {
-          return {
-            success: false,
-            message: "An account with that email already exists.",
-          };
-        }
-
-        const newUser = {
-          id: crypto.randomUUID(),
-          display_name: displayName.trim(),
-          email: email.trim().toLowerCase(),
-          password,
-          plan: "free",
-          time_zone: "UTC",
-        };
-
-        setMockUsers((users) => [...users, newUser]);
-        setCurrentUser(newUser);
-
-        return { success: true, user: newUser };
-      },
-      signOut() {
-        setCurrentUser(null);
-      },
+      isLoading,
+      signIn,
+      signUp,
+      signOut,
+      verifyEmail,
     }),
-    [currentUser, mockUsers],
+    [currentUser, isLoading, signIn, signOut, signUp, verifyEmail],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

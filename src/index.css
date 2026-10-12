@@ -47,6 +47,7 @@ button { cursor: pointer; }
 .auth-terms { margin: 16px 0 0; color: #6b7280; font-size: 14px; line-height: 1.45; }
 .auth-switch { margin: 23px 0 0; color: #4b5563; font-size: 15px; text-align: center; }
 .auth-alert { margin: -2px 0 18px; border: 1px solid #f3aaaa; border-radius: 10px; padding: 13px; background: #fee2e2; color: #b91c1c; font-size: 14px; }
+.auth-success { margin: -2px 0 18px; border: 1px solid #86d5a2; border-radius: 10px; padding: 13px; background: #e8f8ee; color: #166534; font-size: 14px; }
 
 .auth-side-panel { background: white; }
 .auth-hero { height: 50vh; min-height: 430px; padding: 56px 48px; background: #0f1419; color: white; }
